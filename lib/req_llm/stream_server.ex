@@ -652,7 +652,12 @@ defmodule ReqLLM.StreamServer do
               meta_with_usage =
                 if usage do
                   normalized_usage = normalize_streaming_usage(usage, state.model)
-                  Map.update(metadata, :usage, normalized_usage, &Map.merge(&1, normalized_usage))
+
+                  Map.update(metadata, :usage, normalized_usage, fn existing ->
+                    Map.merge(existing, normalized_usage, fn _key, v1, v2 ->
+                      if is_number(v1) and is_number(v2) and v2 == 0, do: v1, else: v2
+                    end)
+                  end)
                 else
                   metadata
                 end
