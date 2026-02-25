@@ -83,11 +83,7 @@ defmodule ReqLLM.Providers.AmazonBedrock.Anthropic do
   end
 
   defp maybe_add_anthropic_beta(body, opts) do
-    betas =
-      opts[:anthropic_beta] ||
-        get_in(opts, [:provider_options, :anthropic_beta])
-
-    case betas do
+    case get_in(opts, [:provider_options, :anthropic_beta]) do
       betas when is_list(betas) and betas != [] ->
         Map.put(body, :anthropic_beta, betas)
 
