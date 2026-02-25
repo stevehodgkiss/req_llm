@@ -652,7 +652,10 @@ defmodule ReqLLM.StreamServer do
               meta_with_usage =
                 if usage do
                   normalized_usage = normalize_streaming_usage(usage, state.model)
-                  Map.update(metadata, :usage, normalized_usage, &Map.merge(&1, normalized_usage))
+
+                  Map.update(metadata, :usage, normalized_usage, fn existing ->
+                    merge_usage(existing, normalized_usage)
+                  end)
                 else
                   metadata
                 end
@@ -902,4 +905,29 @@ defmodule ReqLLM.StreamServer do
   end
 
   defp normalize_streaming_usage(usage, _model), do: usage
+
+  # Merge two usage maps, preserving non-zero values from the earlier map
+  # when the later map has zeros, then recomputing derived totals.
+  defp merge_usage(existing, incoming) do
+    existing
+    |> Map.merge(incoming, fn _key, v1, v2 ->
+      if is_number(v1) and is_number(v2), do: max(v1, v2), else: v2
+    end)
+    |> recompute_usage_totals()
+  end
+
+  defp recompute_usage_totals(usage) do
+    input = Map.get(usage, :input_tokens, 0)
+    output = Map.get(usage, :output_tokens, 0)
+    total = input + output
+
+    usage
+    |> update_if_present(:total_tokens, total)
+    |> update_if_present(:input, input)
+    |> update_if_present(:output, output)
+  end
+
+  defp update_if_present(map, key, value) do
+    if Map.has_key?(map, key), do: Map.put(map, key, value), else: map
+  end
 end
